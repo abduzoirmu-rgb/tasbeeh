@@ -32,6 +32,8 @@ set APP_HOME=%DIRNAME%
 
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
+@rem Convert to 8.3 short path to avoid issues with non-ASCII characters (e.g. Cyrillic).
+for %%i in ("%APP_HOME%") do set APP_HOME=%%~si
 
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"

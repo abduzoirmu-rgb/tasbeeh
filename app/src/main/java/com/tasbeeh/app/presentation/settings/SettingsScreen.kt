@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -86,7 +86,7 @@ fun SettingsContent(
                 onCheckedChange = onSoundToggle
             )
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsGroupHeader(strings.appearanceGroup)
 
             SettingsToggleItem(
@@ -96,7 +96,7 @@ fun SettingsContent(
                 onCheckedChange = onThemeToggle
             )
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsGroupHeader(strings.languageGroup)
 
             // Language selector chips
@@ -116,7 +116,7 @@ fun SettingsContent(
                     }
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsGroupHeader(strings.dataGroup)
 
             TextButton(

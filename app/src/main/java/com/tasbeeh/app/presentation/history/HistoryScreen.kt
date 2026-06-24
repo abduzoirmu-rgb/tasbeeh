@@ -1,5 +1,6 @@
 package com.tasbeeh.app.presentation.history
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +20,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
-import androidx.compose.material3.DismissDirection
-import androidx.compose.material3.DismissValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,10 +27,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismiss
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDismissState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,7 +73,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoryContent(
     sessions: List<Session>,
@@ -117,17 +117,17 @@ fun HistoryContent(
                     }
 
                     items(daySessions, key = { it.id }) { session ->
-                        val dismissState = rememberDismissState(
+                        val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
-                                if (value == DismissValue.DismissedToStart) {
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
                                     onDeleteSession(session); true
                                 } else false
                             }
                         )
-                        SwipeToDismiss(
+                        SwipeToDismissBox(
                             state = dismissState,
-                            directions = setOf(DismissDirection.EndToStart),
-                            background = {
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -141,9 +141,8 @@ fun HistoryContent(
                                         tint = MaterialTheme.colorScheme.onErrorContainer
                                     )
                                 }
-                            },
-                            dismissContent = { HistoryItem(session = session) }
-                        )
+                            }
+                        ) { HistoryItem(session = session) }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }

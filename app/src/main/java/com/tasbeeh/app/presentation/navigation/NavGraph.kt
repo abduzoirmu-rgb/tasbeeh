@@ -9,7 +9,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Settings
@@ -36,7 +36,7 @@ import com.tasbeeh.app.presentation.settings.SettingsScreen
 
 sealed class Screen(val route: String, val icon: ImageVector) {
     object Counter : Screen("counter", Icons.Default.RadioButtonUnchecked)
-    object DhikrList : Screen("dhikr_list", Icons.Default.FormatListBulleted)
+    object DhikrList : Screen("dhikr_list", Icons.AutoMirrored.Filled.FormatListBulleted)
     object History : Screen("history", Icons.Default.History)
     object Settings : Screen("settings", Icons.Default.Settings)
 }

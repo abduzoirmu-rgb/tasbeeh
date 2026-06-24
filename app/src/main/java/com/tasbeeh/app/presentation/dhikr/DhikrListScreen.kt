@@ -20,20 +20,19 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DismissDirection
-import androidx.compose.material3.DismissValue
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismiss
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDismissState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -115,7 +114,7 @@ fun DhikrListContent(
 
             if (customDhikrs.isNotEmpty()) {
                 item {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Text(
                         text = strings.myDhikrs,
                         style = MaterialTheme.typography.labelLarge,
@@ -125,17 +124,17 @@ fun DhikrListContent(
                 }
 
                 items(customDhikrs, key = { it.id }) { dhikr ->
-                    val dismissState = rememberDismissState(
+                    val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { value ->
-                            if (value == DismissValue.DismissedToStart) {
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
                                 onDeleteDhikr(dhikr.id); true
                             } else false
                         }
                     )
-                    SwipeToDismiss(
+                    SwipeToDismissBox(
                         state = dismissState,
-                        directions = setOf(DismissDirection.EndToStart),
-                        background = {
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -149,15 +148,14 @@ fun DhikrListContent(
                                     tint = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
-                        },
-                        dismissContent = {
-                            DhikrCard(
-                                dhikr = dhikr,
-                                isSelected = dhikr.id == selectedDhikrId,
-                                onSelect = { onSelectDhikr(dhikr) }
-                            )
                         }
-                    )
+                    ) {
+                        DhikrCard(
+                            dhikr = dhikr,
+                            isSelected = dhikr.id == selectedDhikrId,
+                            onSelect = { onSelectDhikr(dhikr) }
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
