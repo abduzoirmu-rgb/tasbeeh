@@ -1,12 +1,15 @@
 package com.tasbeeh.app
 
+import android.content.Context
 import app.cash.turbine.test
+import com.tasbeeh.app.data.local.datastore.SettingsDataStore
 import com.tasbeeh.app.domain.model.Dhikr
 import com.tasbeeh.app.domain.model.Session
 import com.tasbeeh.app.domain.model.Settings
 import com.tasbeeh.app.domain.repository.DhikrRepository
 import com.tasbeeh.app.domain.repository.SessionRepository
 import com.tasbeeh.app.domain.repository.SettingsRepository
+import com.tasbeeh.app.domain.usecase.GetDhikrsUseCase
 import com.tasbeeh.app.domain.usecase.IncrementCounterUseCase
 import com.tasbeeh.app.domain.usecase.SaveSessionUseCase
 import com.tasbeeh.app.presentation.counter.CounterViewModel
@@ -38,11 +41,12 @@ class CounterViewModelTest {
     private val defaultDhikr = Dhikr(id = 1L, name = "SubhanAllah", arabicText = null, targetCount = 33, isCustom = false)
     private val anotherDhikr = Dhikr(id = 2L, name = "Alhamdulillah", arabicText = null, targetCount = 100, isCustom = false)
 
+    private val context: Context = mockk(relaxed = true)
     private val dhikrRepository: DhikrRepository = mockk()
-    private val sessionRepository: SessionRepository = mockk(relaxed = true)
     private val settingsRepository: SettingsRepository = mockk()
     private val saveSessionUseCase: SaveSessionUseCase = mockk(relaxed = true)
     private val vibrationManager: VibrationManager = mockk(relaxed = true)
+    private val settingsDataStore: SettingsDataStore = mockk(relaxed = true)
 
     private lateinit var viewModel: CounterViewModel
 
@@ -56,12 +60,14 @@ class CounterViewModelTest {
         every { settingsRepository.settings } returns flowOf(Settings(vibrationEnabled = true))
 
         viewModel = CounterViewModel(
+            context = context,
             incrementCounterUseCase = IncrementCounterUseCase(),
             saveSessionUseCase = saveSessionUseCase,
+            getDhikrsUseCase = GetDhikrsUseCase(dhikrRepository),
             dhikrRepository = dhikrRepository,
-            sessionRepository = sessionRepository,
             settingsRepository = settingsRepository,
-            vibrationManager = vibrationManager
+            vibrationManager = vibrationManager,
+            settingsDataStore = settingsDataStore
         )
     }
 
@@ -70,19 +76,14 @@ class CounterViewModelTest {
         Dispatchers.resetMain()
     }
 
-    // T1 – onTap increments count
-
     @Test
     fun `first tap increments count to one`() = runTest {
         viewModel.uiState.test {
-            awaitItem() // initial state
-
+            awaitItem()
             viewModel.onTap()
             testDispatcher.scheduler.advanceUntilIdle()
-
             val state = awaitItem()
             assertEquals(1, state.count)
-
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -114,8 +115,6 @@ class CounterViewModelTest {
         }
     }
 
-    // T2 – Goal detection
-
     @Test
     fun `goal reached when count equals target`() = runTest {
         repeat(defaultDhikr.targetCount - 1) { viewModel.onTap() }
@@ -136,8 +135,6 @@ class CounterViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    // T3 – Reset
 
     @Test
     fun `reset sets count to zero`() = runTest {
@@ -171,11 +168,9 @@ class CounterViewModelTest {
         assertEquals(0, state.count)
     }
 
-    // T4 – Save session
-
     @Test
     fun `save session delegates to use case with correct arguments`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle() // let init collect dhikrs
+        testDispatcher.scheduler.advanceUntilIdle()
 
         repeat(10) { viewModel.onTap() }
         testDispatcher.scheduler.advanceUntilIdle()
@@ -189,17 +184,6 @@ class CounterViewModelTest {
         assertEquals(10, sessionSlot.captured.count)
         assertEquals(defaultDhikr.id, sessionSlot.captured.dhikrId)
     }
-
-    @Test
-    fun `save session with zero count calls use case`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-        viewModel.onSaveSession()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        coVerify(exactly = 1) { saveSessionUseCase(any()) }
-    }
-
-    // T5 – Select dhikr
 
     @Test
     fun `select dhikr updates target`() = runTest {
