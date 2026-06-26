@@ -1,254 +1,163 @@
 package com.tasbeeh.app.presentation.dhikr
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.LocalFlorist
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Mosque
+import androidx.compose.material.icons.filled.NightlightRound
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasbeeh.app.domain.model.Dhikr
+import com.tasbeeh.app.presentation.localization.AppStrings
 import com.tasbeeh.app.presentation.localization.LocalStrings
+
+private val LightBackground = Color(0xFFF2F4F3)
+private val LightSurface    = Color(0xFFFFFFFF)
+private val PrimaryTeal     = Color(0xFF1D9A6C)
+private val IconBgTeal      = Color(0xFFE8F5F0)
+
+data class DhikrCategory(val title: String, val icon: ImageVector)
+
+private val dhikrCategoryIcons = listOf(
+    Icons.Default.WbSunny, Icons.Default.NightlightRound, Icons.Default.AutoAwesome,
+    Icons.Default.Restaurant, Icons.Default.Bedtime, Icons.Default.AccountBalance,
+    Icons.Default.Favorite, Icons.Default.Flight, Icons.Default.Star,
+    Icons.Default.LocalFlorist, Icons.Default.FavoriteBorder, Icons.Default.Mosque,
+    Icons.Default.MenuBook
+)
+
+private fun buildDhikrCategories(strings: AppStrings): List<DhikrCategory> =
+    strings.duaCategories.take(13).zip(dhikrCategoryIcons).map { (name, icon) ->
+        DhikrCategory(name, icon)
+    }
+
+@Composable
+fun CategoryCard(category: DhikrCategory, onClick: () -> Unit = {}) {
+    val strings = LocalStrings.current
+    Card(
+        modifier  = Modifier.fillMaxWidth().clickable { onClick() },
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = LightSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier         = Modifier.size(44.dp).clip(CircleShape).background(IconBgTeal),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = category.icon,
+                    contentDescription = category.title,
+                    tint               = PrimaryTeal,
+                    modifier           = Modifier.size(24.dp)
+                )
+            }
+            Text(text = category.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1A1A1A), lineHeight = 18.sp)
+            TextButton(onClick = onClick, contentPadding = PaddingValues(0.dp)) {
+                Text(text = strings.open, color = PrimaryTeal, fontSize = 12.sp)
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DhikrListScreen(
-    selectedDhikrId: Long?,
-    onSelectDhikr: (Dhikr) -> Unit,
+    selectedDhikrId: Long? = null,
+    onSelectDhikr: (Dhikr) -> Unit = {},
     viewModel: DhikrViewModel = hiltViewModel()
 ) {
-    val dhikrs by viewModel.dhikrs.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-
-    DhikrListContent(
-        dhikrs = dhikrs,
-        selectedDhikrId = selectedDhikrId,
-        onSelectDhikr = onSelectDhikr,
-        onAddClick = { showAddDialog = true },
-        onDeleteDhikr = { viewModel.deleteDhikr(it) }
-    )
-
-    if (showAddDialog) {
-        AddDhikrDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { name, arabic, target ->
-                viewModel.saveDhikr(name, arabic, target)
-                showAddDialog = false
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DhikrListContent(
-    dhikrs: List<Dhikr>,
-    selectedDhikrId: Long?,
-    onSelectDhikr: (Dhikr) -> Unit,
-    onAddClick: () -> Unit,
-    onDeleteDhikr: (Long) -> Unit
-) {
-    val strings = LocalStrings.current
-    val presetDhikrs = dhikrs.filter { !it.isCustom }
-    val customDhikrs = dhikrs.filter { it.isCustom }
+    val strings       = LocalStrings.current
+    val searchQuery   by viewModel.searchQuery.collectAsState()
+    val allCategories = buildDhikrCategories(strings)
+    val filtered      = allCategories.filter { it.title.contains(searchQuery, ignoreCase = true) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(strings.dhikrsTitle) }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick) {
-                Icon(Icons.Default.Add, contentDescription = strings.addDhikr)
-            }
+        containerColor = LightBackground,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(text = strings.dhikrsTitle, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Color(0xFF1A1A1A))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LightBackground)
+            )
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp)
-        ) {
-            items(presetDhikrs, key = { it.id }) { dhikr ->
-                DhikrCard(
-                    dhikr = dhikr,
-                    isSelected = dhikr.id == selectedDhikrId,
-                    onSelect = { onSelectDhikr(dhikr) }
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            OutlinedTextField(
+                value         = searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
+                placeholder   = { Text(strings.searchPlaceholder, color = Color(0xFF9E9E9E)) },
+                leadingIcon   = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF9E9E9E)) },
+                modifier      = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                shape         = RoundedCornerShape(12.dp),
+                singleLine    = true,
+                colors        = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = LightSurface,
+                    focusedContainerColor   = LightSurface,
+                    focusedBorderColor      = PrimaryTeal,
+                    unfocusedBorderColor    = Color(0xFFE0E0E0)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (customDhikrs.isNotEmpty()) {
-                item {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Text(
-                        text = strings.myDhikrs,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-
-                items(customDhikrs, key = { it.id }) { dhikr ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                onDeleteDhikr(dhikr.id); true
-                            } else false
-                        }
-                    )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .padding(end = 16.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = strings.delete,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    ) {
-                        DhikrCard(
-                            dhikr = dhikr,
-                            isSelected = dhikr.id == selectedDhikrId,
-                            onSelect = { onSelectDhikr(dhikr) }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DhikrCard(dhikr: Dhikr, isSelected: Boolean, onSelect: () -> Unit) {
-    Card(
-        onClick = onSelect,
-        modifier = Modifier.fillMaxWidth(),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            )
+            LazyVerticalGrid(
+                columns               = GridCells.Fixed(2),
+                contentPadding        = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement   = Arrangement.spacedBy(12.dp),
+                modifier              = Modifier.fillMaxSize()
             ) {
-                Text(text = dhikr.name, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "×${dhikr.targetCount}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-            dhikr.arabicText?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                items(filtered, key = { it.title }) { category ->
+                    CategoryCard(category = category)
+                }
             }
         }
     }
-}
-
-@Composable
-fun AddDhikrDialog(onDismiss: () -> Unit, onConfirm: (String, String?, Int) -> Unit) {
-    val strings = LocalStrings.current
-    var name by remember { mutableStateOf("") }
-    var arabicText by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf("33") }
-    var nameError by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(strings.newDhikr) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it; nameError = false },
-                    label = { Text(strings.dhikrNameLabel) },
-                    isError = nameError,
-                    supportingText = if (nameError) {
-                        { Text(strings.dhikrNameRequired) }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = arabicText,
-                    onValueChange = { arabicText = it },
-                    label = { Text(strings.arabicTextLabel) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = target,
-                    onValueChange = { target = it.filter { c -> c.isDigit() } },
-                    label = { Text(strings.goalCountLabel) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                if (name.isBlank()) {
-                    nameError = true
-                } else {
-                    onConfirm(name.trim(), arabicText.takeIf { it.isNotBlank() }, target.toIntOrNull() ?: 33)
-                }
-            }) { Text(strings.add) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(strings.cancel) }
-        }
-    )
 }

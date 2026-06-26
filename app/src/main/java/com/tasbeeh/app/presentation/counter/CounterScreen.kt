@@ -1,21 +1,16 @@
 package com.tasbeeh.app.presentation.counter
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.EaseOut
-import androidx.compose.animation.core.InfiniteRepeatableSpec
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,315 +21,367 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tasbeeh.app.domain.model.Dhikr
+import com.tasbeeh.app.domain.model.PredefinedBackgrounds
 import com.tasbeeh.app.presentation.localization.LocalStrings
-import kotlinx.coroutines.delay
-import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
+
+// ---------------------------------------------------------------------------
+// Colours (mirrored from spec so this file is self-contained)
+// ---------------------------------------------------------------------------
+
+private val DarkBackground   = Color(0xFF0D1B15)
+private val DarkSurface      = Color(0xFF112218)
+private val PrimaryTeal      = Color(0xFF1D9A6C)
+private val PrimaryTealLight = Color(0xFF4ECBA0)
+private val OnDarkMuted      = Color(0xFF7A9D8C)
+private val InactiveBead     = Color(0xFF2A4A38)
+
+// ---------------------------------------------------------------------------
+// BeadRing
+// ---------------------------------------------------------------------------
 
 @Composable
+fun BeadRing(
+    count: Int,
+    target: Int,
+    modifier: Modifier = Modifier,
+    accentColor: Color = PrimaryTeal,
+    onClick: () -> Unit
+) {
+    val beadCount = 33
+    val inactiveColor = accentColor.copy(alpha = 0.25f)
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .clickable { onClick() }
+    ) {
+        val center       = Offset(size.width / 2f, size.height / 2f)
+        val ringRadius   = minOf(size.width, size.height) / 2f * 0.78f
+        val beadRadiusPx = 6.dp.toPx()
+
+        for (i in 0 until beadCount) {
+            val angle = (2 * Math.PI * i / beadCount - Math.PI / 2).toFloat()
+            val x     = center.x + ringRadius * cos(angle)
+            val y     = center.y + ringRadius * sin(angle)
+            val pos   = Offset(x, y)
+
+            val isFilled  = count > 0 && i < count % beadCount
+            val isCurrent = count > 0 && i == (count - 1) % beadCount
+
+            when {
+                isCurrent -> {
+                    drawCircle(color = accentColor.copy(alpha = 0.35f), radius = beadRadiusPx * 3f, center = pos)
+                    drawCircle(color = accentColor,                      radius = beadRadiusPx * 1.4f, center = pos)
+                }
+                isFilled  -> drawCircle(color = accentColor,   radius = beadRadiusPx, center = pos)
+                else      -> drawCircle(color = inactiveColor, radius = beadRadiusPx, center = pos)
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DhikrTabs — horizontal chip row
+// ---------------------------------------------------------------------------
+
+@Composable
+fun DhikrTabs(
+    dhikrs: List<Dhikr>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = PrimaryTeal
+) {
+    if (dhikrs.isEmpty()) return
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        dhikrs.forEachIndexed { index, dhikr ->
+            val selected = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (selected) accentColor else Color.Transparent)
+                    .clickable { onSelect(index) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text  = dhikr.name,
+                    color = if (selected) Color.White else OnDarkMuted,
+                    fontSize = 13.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SegmentControl — "Дуа и Зикры" | "Тасбех"
+// ---------------------------------------------------------------------------
+
+@Composable
+fun SegmentControl(
+    selectedLabel: String,
+    onDuaClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = PrimaryTeal,
+    surfaceColor: Color = DarkSurface
+) {
+    val strings = LocalStrings.current
+    val options = listOf(strings.dhikrsTitle, strings.tasbeh)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(surfaceColor),
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        options.forEach { label ->
+            val isSelected = label == selectedLabel
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (isSelected) accentColor else Color.Transparent)
+                    .clickable { if (label == strings.dhikrsTitle) onDuaClick() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text       = label,
+                    color      = if (isSelected) Color.White else OnDarkMuted,
+                    fontSize   = 14.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    textAlign  = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CounterScreen
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun CounterScreen(
-    onNavigateToDhikrList: () -> Unit,
+    onNavigateToDhikrList: () -> Unit = {},
     viewModel: CounterViewModel = hiltViewModel()
 ) {
+    val strings = LocalStrings.current
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    var showTargetPicker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.isGoalReached) {
-        if (uiState.isGoalReached) {
-            delay(1500)
-            viewModel.onAutoReset()
+    val bgTheme = remember(uiState.selectedBackgroundId) {
+        PredefinedBackgrounds.find { it.id == uiState.selectedBackgroundId }
+            ?: PredefinedBackgrounds.first()
+    }
+
+    LaunchedEffect(uiState.isComplete) {
+        if (uiState.isComplete) {
+            snackbarHostState.showSnackbar(strings.dhikrComplete)
         }
     }
 
-    CounterContent(
-        uiState = uiState,
-        onTap = viewModel::onTap,
-        onReset = viewModel::onReset,
-        onSaveSession = viewModel::onSaveSession,
-        onNavigateToDhikrList = onNavigateToDhikrList,
-        onSetTarget = viewModel::onSetTarget
-    )
-}
+    if (showTargetPicker) {
+        TasbihTypePickerSheet(
+            currentTarget = uiState.target,
+            sheetState    = sheetState,
+            onDismiss     = { showTargetPicker = false },
+            onSelect      = { viewModel.onEvent(CounterEvent.SetTarget(it)) }
+        )
+    }
 
-@Composable
-fun CounterContent(
-    uiState: CounterUiState,
-    onTap: () -> Unit,
-    onReset: () -> Unit,
-    onSaveSession: () -> Unit,
-    onNavigateToDhikrList: () -> Unit,
-    onSetTarget: (Int) -> Unit
-) {
-    val strings = LocalStrings.current
-
-    val bgColor by animateColorAsState(
-        targetValue = if (uiState.isGoalReached)
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-        else
-            MaterialTheme.colorScheme.background,
-        animationSpec = tween(600),
-        label = "bg"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = bgColor
-    ) {
+    Scaffold(
+        containerColor = bgTheme.bgColor,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData    = data,
+                    containerColor  = bgTheme.accentColor,
+                    contentColor    = Color.White
+                )
+            }
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(innerPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            // Segment toggle
+            SegmentControl(
+                selectedLabel = strings.tasbeh,
+                onDuaClick    = onNavigateToDhikrList,
+                accentColor   = bgTheme.accentColor,
+                surfaceColor  = bgTheme.surfaceColor
+            )
 
-            TextButton(onClick = onNavigateToDhikrList) {
-                Text(
-                    text = uiState.selectedDhikr?.name ?: strings.selectDhikr,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            // Dhikr tabs
+            DhikrTabs(
+                dhikrs        = uiState.dhikrs,
+                selectedIndex = uiState.selectedDhikrIndex,
+                onSelect      = { viewModel.onEvent(CounterEvent.SelectDhikr(it)) },
+                accentColor   = bgTheme.accentColor
+            )
 
+            // Arabic text (if showTextOnScreen)
             uiState.selectedDhikr?.arabicText?.let { arabic ->
                 Text(
-                    text = arabic,
-                    fontSize = 32.sp,
-                    fontFamily = FontFamily.Default,
+                    text      = arabic,
+                    color     = OnDarkMuted,
+                    fontSize  = 22.sp,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    modifier  = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            CounterButton(
-                count = uiState.count,
-                target = uiState.target,
-                isGoalReached = uiState.isGoalReached,
-                onClick = onTap
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            PresetChipsRow(
-                currentTarget = uiState.target,
-                onSelectTarget = onSetTarget
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            // Main bead ring + counter overlay
+            Box(
+                modifier           = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                contentAlignment   = Alignment.Center
             ) {
-                TextButton(
-                    onClick = onReset,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
+                BeadRing(
+                    count       = uiState.count,
+                    target      = uiState.target,
+                    accentColor = bgTheme.accentColor,
+                    onClick     = { viewModel.onEvent(CounterEvent.Increment) }
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Text(strings.reset, style = MaterialTheme.typography.labelLarge)
-                }
-                TextButton(onClick = onSaveSession) {
-                    Text(strings.save, style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CounterButton(
-    count: Int,
-    target: Int,
-    isGoalReached: Boolean,
-    onClick: () -> Unit
-) {
-    var pressed by remember { mutableStateOf(false) }
-
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.93f else 1f,
-        animationSpec = tween(80),
-        label = "press",
-        finishedListener = { pressed = false }
-    )
-
-    val progress = if (target > 0) (count.toFloat() / target.toFloat()).coerceIn(0f, 1f) else 0f
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-
-    val buttonColor by animateColorAsState(
-        targetValue = if (isGoalReached) secondaryColor else primaryColor,
-        animationSpec = tween(400),
-        label = "btn_color"
-    )
-
-    // Pulsating rings when goal is reached
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val ringScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = EaseOut),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ring_scale"
-    )
-    val ringAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = EaseOut),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ring_alpha"
-    )
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(270.dp)
-            .scale(pressScale)
-    ) {
-        // Glow rings (always visible, stronger on goal)
-        Box(
-            modifier = Modifier
-                .size(270.dp)
-                .drawBehind {
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    val baseR = size.minDimension / 2f
-                    if (isGoalReached) {
-                        // Pulsating ring
-                        drawCircle(
-                            color = secondaryColor.copy(alpha = ringAlpha * 0.6f),
-                            radius = baseR * ringScale,
-                            center = center
-                        )
-                        drawCircle(
-                            color = secondaryColor.copy(alpha = ringAlpha * 0.3f),
-                            radius = baseR * ringScale * 1.15f,
-                            center = center
-                        )
-                    }
-                    // Soft glow layers
-                    for (i in 1..3) {
-                        drawCircle(
-                            color = buttonColor.copy(alpha = 0.07f * (4 - i)),
-                            radius = baseR + (i * 16).dp.toPx(),
-                            center = center
-                        )
-                    }
-                }
-        )
-
-        // Progress ring
-        CircularProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.size(270.dp),
-            strokeWidth = 7.dp,
-            strokeCap = StrokeCap.Round,
-            color = buttonColor,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-
-        // Gradient circle button
-        Box(
-            modifier = Modifier
-                .size(224.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            buttonColor.copy(alpha = 0.85f),
-                            buttonColor
-                        )
-                    ),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Surface(
-                modifier = Modifier.size(224.dp),
-                shape = CircleShape,
-                color = Color.Transparent,
-                onClick = {
-                    pressed = true
-                    onClick()
-                },
-                shadowElevation = 0.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
                     AnimatedContent(
-                        targetState = count,
+                        targetState  = uiState.count,
                         transitionSpec = {
-                            if (targetState > initialState) {
-                                (slideInVertically { -it } + fadeIn(tween(120))) togetherWith
-                                        (slideOutVertically { it } + fadeOut(tween(80)))
-                            } else {
-                                (slideInVertically { it } + fadeIn(tween(120))) togetherWith
-                                        (slideOutVertically { -it } + fadeOut(tween(80)))
-                            }
+                            (slideInVertically { -it } + fadeIn(tween(120))) togetherWith
+                                    (slideOutVertically { it } + fadeOut(tween(80)))
                         },
-                        label = "counter_num"
+                        label = "counter_anim"
                     ) { animCount ->
                         Text(
-                            text = animCount.toString(),
-                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 62.sp),
-                            color = Color.White
+                            text       = animCount.toString(),
+                            fontSize   = 64.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = Color.White
+                        )
+                    }
+
+                    Text(
+                        text  = "/${uiState.target}",
+                        color = OnDarkMuted,
+                        fontSize = 20.sp
+                    )
+                }
+            }
+
+            // Bottom row: Reset + Target picker
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                // Reset button
+                IconButton(
+                    onClick  = { viewModel.onEvent(CounterEvent.Reset) },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(bgTheme.surfaceColor)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Refresh,
+                        contentDescription = strings.reset,
+                        tint               = OnDarkMuted
+                    )
+                }
+
+                // Target picker chip
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(bgTheme.surfaceColor)
+                        .clickable { showTargetPicker = true }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint               = bgTheme.accentColor,
+                            modifier           = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text       = "${strings.goal} ${uiState.target}",
+                            color      = Color.White,
+                            fontSize   = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun PresetChipsRow(
-    currentTarget: Int,
-    onSelectTarget: (Int) -> Unit
-) {
-    val presets = listOf(33 to "33", 99 to "99", 100 to "100", 0 to "∞")
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        presets.forEach { (value, label) ->
-            FilterChip(
-                selected = currentTarget == value,
-                onClick = { onSelectTarget(value) },
-                label = { Text(label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

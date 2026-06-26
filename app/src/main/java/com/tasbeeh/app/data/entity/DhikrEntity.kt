@@ -10,5 +10,5 @@ data class DhikrEntity(
     val name: String,
     val arabicText: String?,
     val targetCount: Int,
-    val isCustom: Boolean
+    val isCustom: Boolean = false
 )

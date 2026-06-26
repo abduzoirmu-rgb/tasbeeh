@@ -13,15 +13,19 @@ class SessionRepositoryImpl @Inject constructor(
     private val sessionDao: SessionDao
 ) : SessionRepository {
 
-    override fun getAllSessions(): Flow<List<Session>> =
-        sessionDao.getAllSessions().map { list -> list.map { it.toDomain() } }
+    override fun getSessions(): Flow<List<Session>> =
+        sessionDao.getAll().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun saveSession(session: Session) =
-        sessionDao.insertSession(session.toEntity())
+    override fun getSessionsByDhikr(dhikrId: Long): Flow<List<Session>> =
+        sessionDao.getByDhikr(dhikrId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun saveSession(session: Session) {
+        sessionDao.insert(session.toEntity())
+    }
 
     override suspend fun deleteSession(id: Long) =
-        sessionDao.deleteSessionById(id)
+        sessionDao.deleteById(id)
 
     override suspend fun deleteAllSessions() =
-        sessionDao.deleteAllSessions()
+        sessionDao.deleteAll()
 }

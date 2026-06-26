@@ -1,24 +1,18 @@
 package com.tasbeeh.app
 
-import android.content.Context
 import app.cash.turbine.test
-import com.tasbeeh.app.data.local.datastore.SettingsDataStore
 import com.tasbeeh.app.domain.model.Dhikr
 import com.tasbeeh.app.domain.model.Session
-import com.tasbeeh.app.domain.model.Settings
 import com.tasbeeh.app.domain.repository.DhikrRepository
 import com.tasbeeh.app.domain.repository.SessionRepository
-import com.tasbeeh.app.domain.repository.SettingsRepository
 import com.tasbeeh.app.domain.usecase.GetDhikrsUseCase
-import com.tasbeeh.app.domain.usecase.IncrementCounterUseCase
 import com.tasbeeh.app.domain.usecase.SaveSessionUseCase
+import com.tasbeeh.app.presentation.counter.CounterEvent
+import com.tasbeeh.app.presentation.counter.CounterUiState
 import com.tasbeeh.app.presentation.counter.CounterViewModel
-import com.tasbeeh.app.presentation.util.VibrationManager
-import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -38,36 +32,30 @@ class CounterViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
-    private val defaultDhikr = Dhikr(id = 1L, name = "SubhanAllah", arabicText = null, targetCount = 33, isCustom = false)
-    private val anotherDhikr = Dhikr(id = 2L, name = "Alhamdulillah", arabicText = null, targetCount = 100, isCustom = false)
+    // Three preset dhikrs matching the DB seed from the ADR
+    private val dhikr1 = Dhikr(id = 1L, name = "Субханаллах",    arabicText = "سُبْحَانَ ٱللَّٰهِ", targetCount = 33)
+    private val dhikr2 = Dhikr(id = 2L, name = "Альхамдулиллах", arabicText = "ٱلْحَمْدُ لِلَّٰهِ", targetCount = 33)
+    private val dhikr3 = Dhikr(id = 3L, name = "Аллаху Акбар",   arabicText = "ٱللَّٰهُ أَكْبَرُ",  targetCount = 34)
 
-    private val context: Context = mockk(relaxed = true)
-    private val dhikrRepository: DhikrRepository = mockk()
-    private val settingsRepository: SettingsRepository = mockk()
-    private val saveSessionUseCase: SaveSessionUseCase = mockk(relaxed = true)
-    private val vibrationManager: VibrationManager = mockk(relaxed = true)
-    private val settingsDataStore: SettingsDataStore = mockk(relaxed = true)
+    private val dhikrRepository: DhikrRepository   = mockk()
+    private val sessionRepository: SessionRepository = mockk(relaxed = true)
 
+    private lateinit var getDhikrsUseCase: GetDhikrsUseCase
+    private lateinit var saveSessionUseCase: SaveSessionUseCase
     private lateinit var viewModel: CounterViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
 
-        every { dhikrRepository.getAllDhikrs() } returns flowOf(listOf(defaultDhikr, anotherDhikr))
-        coEvery { dhikrRepository.getDhikrById(defaultDhikr.id) } returns defaultDhikr
-        coEvery { dhikrRepository.getDhikrById(anotherDhikr.id) } returns anotherDhikr
-        every { settingsRepository.settings } returns flowOf(Settings(vibrationEnabled = true))
+        every { dhikrRepository.getDhikrs() } returns flowOf(listOf(dhikr1, dhikr2, dhikr3))
+
+        getDhikrsUseCase  = GetDhikrsUseCase(dhikrRepository)
+        saveSessionUseCase = SaveSessionUseCase(sessionRepository)
 
         viewModel = CounterViewModel(
-            context = context,
-            incrementCounterUseCase = IncrementCounterUseCase(),
-            saveSessionUseCase = saveSessionUseCase,
-            getDhikrsUseCase = GetDhikrsUseCase(dhikrRepository),
-            dhikrRepository = dhikrRepository,
-            settingsRepository = settingsRepository,
-            vibrationManager = vibrationManager,
-            settingsDataStore = settingsDataStore
+            getDhikrsUseCase   = getDhikrsUseCase,
+            saveSessionUseCase = saveSessionUseCase
         )
     }
 
@@ -76,141 +64,102 @@ class CounterViewModelTest {
         Dispatchers.resetMain()
     }
 
+    // 1. After the dhikrs flow emits the ViewModel should have all three dhikrs,
+    //    count = 0, selectedDhikrIndex = 0, target = 33, isComplete = false.
     @Test
-    fun `first tap increments count to one`() = runTest {
+    fun initialState_isCorrect() = runTest {
         viewModel.uiState.test {
-            awaitItem()
-            viewModel.onTap()
+            // Advance so the init coroutine processes the flow emission
             testDispatcher.scheduler.advanceUntilIdle()
+
+            val state: CounterUiState = expectMostRecentItem()
+
+            assertEquals(3,     state.dhikrs.size)
+            assertEquals(0,     state.count)
+            assertEquals(0,     state.selectedDhikrIndex)
+            assertEquals(33,    state.target)
+            assertFalse(state.isComplete)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // 2. A single Increment raises count to 1 and isComplete stays false.
+    @Test
+    fun increment_increasesCount() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            awaitItem() // consume settled initial state
+
+            viewModel.onEvent(CounterEvent.Increment)
+            testDispatcher.scheduler.advanceUntilIdle()
+
             val state = awaitItem()
             assertEquals(1, state.count)
+            assertFalse(state.isComplete)
+
             cancelAndIgnoreRemainingEvents()
         }
     }
 
+    // 3. Tapping 33 times (== target) marks isComplete = true and calls saveSessionUseCase
+    //    with completed = true.
     @Test
-    fun `three taps produce count three`() = runTest {
-        viewModel.uiState.test {
-            awaitItem()
-            repeat(3) {
-                viewModel.onTap()
-                testDispatcher.scheduler.advanceUntilIdle()
-                awaitItem()
-            }
-            val state = expectMostRecentItem()
-            assertEquals(3, state.count)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `isGoalReached false before reaching target`() = runTest {
-        viewModel.uiState.test {
-            awaitItem()
-            viewModel.onTap()
-            testDispatcher.scheduler.advanceUntilIdle()
-            val state = awaitItem()
-            assertFalse(state.isGoalReached)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `goal reached when count equals target`() = runTest {
-        repeat(defaultDhikr.targetCount - 1) { viewModel.onTap() }
+    fun increment_toTarget_setsIsComplete_andSavesSession() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.uiState.test {
-            val beforeGoal = awaitItem()
-            assertEquals(defaultDhikr.targetCount - 1, beforeGoal.count)
-            assertFalse(beforeGoal.isGoalReached)
-
-            viewModel.onTap()
-            testDispatcher.scheduler.advanceUntilIdle()
-
-            val atGoal = awaitItem()
-            assertEquals(defaultDhikr.targetCount, atGoal.count)
-            assertTrue(atGoal.isGoalReached)
-
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `reset sets count to zero`() = runTest {
-        repeat(5) { viewModel.onTap() }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.uiState.test {
-            val beforeReset = awaitItem()
-            assertEquals(5, beforeReset.count)
-
-            viewModel.onReset()
-            testDispatcher.scheduler.advanceUntilIdle()
-
-            val afterReset = awaitItem()
-            assertEquals(0, afterReset.count)
-
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `reset clears isGoalReached`() = runTest {
-        repeat(defaultDhikr.targetCount) { viewModel.onTap() }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.onReset()
+        repeat(33) { viewModel.onEvent(CounterEvent.Increment) }
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertFalse(state.isGoalReached)
-        assertEquals(0, state.count)
-    }
+        assertTrue(state.isComplete)
 
-    @Test
-    fun `save session delegates to use case with correct arguments`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        repeat(10) { viewModel.onTap() }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.onSaveSession()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val sessionSlot = slot<Session>()
-        coVerify { saveSessionUseCase(capture(sessionSlot)) }
-
-        assertEquals(10, sessionSlot.captured.count)
-        assertEquals(defaultDhikr.id, sessionSlot.captured.dhikrId)
-    }
-
-    @Test
-    fun `select dhikr updates target`() = runTest {
-        viewModel.uiState.test {
-            awaitItem()
-
-            viewModel.onSelectDhikr(anotherDhikr.id)
-            testDispatcher.scheduler.advanceUntilIdle()
-
-            val state = awaitItem()
-            assertEquals(anotherDhikr.targetCount, state.target)
-            assertEquals(anotherDhikr.id, state.selectedDhikr?.id)
-
-            cancelAndIgnoreRemainingEvents()
+        coVerify {
+            saveSessionUseCase(
+                match { session: Session -> session.completed && session.count == 33 }
+            )
         }
     }
 
+    // 4. After 5 increments, Reset brings count back to 0.
     @Test
-    fun `select dhikr resets count`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-        repeat(5) { viewModel.onTap() }
+    fun reset_resetsCount() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.onSelectDhikr(anotherDhikr.id)
+        repeat(5) { viewModel.onEvent(CounterEvent.Increment) }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onEvent(CounterEvent.Reset)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.count)
+    }
+
+    // 5. SelectDhikr(1) after 5 taps → selectedDhikrIndex = 1, count = 0.
+    @Test
+    fun selectDhikr_changesIndexAndResetsCount() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        repeat(5) { viewModel.onEvent(CounterEvent.Increment) }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onEvent(CounterEvent.SelectDhikr(1))
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
+        assertEquals(1, state.selectedDhikrIndex)
         assertEquals(0, state.count)
+    }
+
+    // 6. dhikr at index 2 ("Аллаху Акбар") has target = 34 per the ADR.
+    @Test
+    fun selectDhikrIndex2_hasTarget34() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onEvent(CounterEvent.SelectDhikr(2))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(34, viewModel.uiState.value.target)
     }
 }

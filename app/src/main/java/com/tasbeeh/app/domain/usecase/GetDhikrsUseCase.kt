@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class GetDhikrsUseCase @Inject constructor(
-    private val dhikrRepository: DhikrRepository
+    private val repository: DhikrRepository
 ) {
-    operator fun invoke(): Flow<List<Dhikr>> = dhikrRepository.getAllDhikrs()
+    operator fun invoke(): Flow<List<Dhikr>> = repository.getDhikrs()
 }

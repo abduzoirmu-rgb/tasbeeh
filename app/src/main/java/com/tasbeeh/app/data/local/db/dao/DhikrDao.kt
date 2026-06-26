@@ -11,14 +11,17 @@ import kotlinx.coroutines.flow.Flow
 interface DhikrDao {
 
     @Query("SELECT * FROM dhikrs")
-    fun getAllDhikrs(): Flow<List<DhikrEntity>>
+    fun getAll(): Flow<List<DhikrEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(vararg dhikrs: DhikrEntity)
 
     @Query("SELECT * FROM dhikrs WHERE id = :id")
-    suspend fun getDhikrById(id: Long): DhikrEntity?
+    suspend fun getById(id: Long): DhikrEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDhikr(dhikr: DhikrEntity): Long
+    suspend fun insert(dhikr: DhikrEntity): Long
 
     @Query("DELETE FROM dhikrs WHERE id = :id")
-    suspend fun deleteDhikrById(id: Long)
+    suspend fun deleteById(id: Long)
 }

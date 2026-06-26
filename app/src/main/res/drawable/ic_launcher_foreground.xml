@@ -4,10 +4,39 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Ring cord (340° arc, gap at bottom for tail) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#D4AF37"
+        android:strokeWidth="2"
+        android:pathData="M50.2,75.7 A22,22 0 1,1 57.8,75.7"/>
+
+    <!-- Tail cord: V-connector + vertical string -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#D4AF37"
+        android:strokeWidth="2"
+        android:pathData="M50.2,75.7 L54,78 M57.8,75.7 L54,78 M54,78 L54,88"/>
+
+    <!-- 9 ring beads (evenly spaced, bottom position replaced by tail) -->
     <path
         android:fillColor="#D4AF37"
-        android:pathData="M54,18 C54,18 30,46 30,62 C30,77.5 40.7,88 54,88 C67.3,88 78,77.5 78,62 C78,46 54,18 54,18 Z"/>
+        android:pathData="M49.5,32 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M62.4,36.2 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M70.4,47.2 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M70.4,60.8 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M62.4,71.8 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M36.6,71.8 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M28.6,60.8 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M28.6,47.2 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0
+            M36.6,36.2 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"/>
+
+    <!-- Knot bead at junction + 2 tail beads -->
     <path
-        android:fillColor="#1B4332"
-        android:pathData="M54,44 C54,44 42,58 42,65 C42,72.2 47.4,77 54,77 C60.6,77 66,72.2 66,65 C66,58 54,44 54,44 Z"/>
+        android:fillColor="#D4AF37"
+        android:pathData="M51,78.5 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0
+            M50.5,83.5 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0
+            M50.5,88.5 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"/>
+
 </vector>

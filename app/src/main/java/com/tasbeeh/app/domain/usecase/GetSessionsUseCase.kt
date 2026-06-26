@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class GetSessionsUseCase @Inject constructor(
-    private val sessionRepository: SessionRepository
+    private val repository: SessionRepository
 ) {
-    operator fun invoke(): Flow<List<Session>> = sessionRepository.getAllSessions()
+    operator fun invoke(): Flow<List<Session>> = repository.getSessions()
 }

@@ -18,9 +18,15 @@ class SettingsViewModel @Inject constructor(
     private val sessionRepository: SessionRepository
 ) : ViewModel() {
 
-    val settings: StateFlow<Settings> = settingsRepository.settings
+    val settings: StateFlow<Settings> = settingsRepository.getSettings()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Settings())
 
+    /** Primary update — replaces the entire Settings object. */
+    fun updateSettings(settings: Settings) {
+        viewModelScope.launch { settingsRepository.updateSettings(settings) }
+    }
+
+    // Legacy granular helpers (kept for backward compatibility)
     fun updateVibration(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.updateVibration(enabled) }
     }

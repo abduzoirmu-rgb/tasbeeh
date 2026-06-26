@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Тасбех</string>
+    <string name="app_name">Tasbeeh</string>
+    <string name="tab_dua_and_dhikr">Дуа и Зикры</string>
+    <string name="tab_tasbeeh">Тасбех</string>
+    <string name="dhikr_subhanallah">Субханаллах</string>
+    <string name="dhikr_alhamdulillah">Альхамдулиллах</string>
+    <string name="dhikr_allahu_akbar">Аллаху Акбар</string>
+    <string name="nav_dhikr">Зикры</string>
+    <string name="nav_analysis">Анализ</string>
+    <string name="nav_reminder">Напоминание</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_auto_count">Автоматический счет зикра</string>
+    <string name="settings_show_text">Текст на экране</string>
+    <string name="settings_privacy">Режим конфиденциальности (Скрыть счетчик)</string>
+    <string name="settings_smart_touch">Умное касание</string>
+    <string name="settings_auto_repeat">Автоповтор</string>
+    <string name="settings_keep_screen">Не выключать экран</string>
+    <string name="settings_daily_goal">Ежедневная цель</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_value">Русский</string>
+    <string name="support_rate_app">Оценить приложение</string>
+    <string name="support_watch_ad">Поддержать просмотром рекламы</string>
+    <string name="support_contacts">Контакты</string>
+    <string name="support_share">Поделиться с друзьями</string>
+    <string name="section_support">ПОДДЕРЖКА И ИНФО</string>
+    <string name="version">Версия 1.0.5</string>
 </resources>

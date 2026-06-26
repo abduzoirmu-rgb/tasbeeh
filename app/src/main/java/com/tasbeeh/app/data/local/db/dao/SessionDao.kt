@@ -9,15 +9,21 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SessionDao {
 
-    @Query("SELECT * FROM sessions ORDER BY timestamp DESC")
-    fun getAllSessions(): Flow<List<SessionEntity>>
-
     @Insert
-    suspend fun insertSession(session: SessionEntity)
+    suspend fun insert(session: SessionEntity): Long
+
+    @Query("SELECT * FROM sessions WHERE id = :id")
+    suspend fun getById(id: Long): SessionEntity?
+
+    @Query("SELECT * FROM sessions ORDER BY timestamp DESC")
+    fun getAll(): Flow<List<SessionEntity>>
+
+    @Query("SELECT * FROM sessions WHERE dhikr_id = :dhikrId ORDER BY timestamp DESC")
+    fun getByDhikr(dhikrId: Long): Flow<List<SessionEntity>>
 
     @Query("DELETE FROM sessions WHERE id = :id")
-    suspend fun deleteSessionById(id: Long)
+    suspend fun deleteById(id: Long)
 
     @Query("DELETE FROM sessions")
-    suspend fun deleteAllSessions()
+    suspend fun deleteAll()
 }
